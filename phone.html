@@ -1,0 +1,248 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <title>🖌 Кисть</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/peerjs/1.5.2/peerjs.min.js"></script>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      background: #0f0f1a; color: white; font-family: Arial, sans-serif;
+      height: 100vh; display: flex; flex-direction: column;
+      align-items: center; justify-content: center; touch-action: none;
+      user-select: none;
+    }
+    h2 { font-size: 22px; margin-bottom: 6px; }
+    #status { font-size: 13px; color: #888; margin-bottom: 24px; }
+    #status.ok { color: #0f0; }
+    #brush-btn {
+      width: 160px; height: 160px; border-radius: 50%;
+      background: radial-gradient(circle, #4a90e2, #1a3a6e);
+      border: 4px solid #4a90e2; font-size: 18px; color: white;
+      cursor: pointer; display: flex; align-items: center; justify-content: center;
+      flex-direction: column; gap: 4px; box-shadow: 0 0 30px rgba(74,144,226,0.4);
+      -webkit-tap-highlight-color: transparent;
+      transition: transform 0.1s, box-shadow 0.1s;
+    }
+    #brush-btn.active {
+      background: radial-gradient(circle, #e24a4a, #6e1a1a);
+      border-color: #e24a4a; box-shadow: 0 0 40px rgba(226,74,74,0.6);
+      transform: scale(0.96);
+    }
+    #brush-btn span { font-size: 40px; }
+    .controls { margin-top: 30px; display: flex; flex-direction: column; gap: 16px; width: 90%; max-width: 340px; }
+    .control-row { display: flex; align-items: center; gap: 12px; }
+    label { font-size: 14px; color: #aaa; width: 80px; }
+    input[type=range] { flex: 1; accent-color: #4a90e2; }
+    input[type=color] { width: 48px; height: 36px; border: none; border-radius: 8px; cursor: pointer; }
+    .colors { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 4px; }
+    .color-btn {
+      width: 36px; height: 36px; border-radius: 50%; cursor: pointer;
+      border: 3px solid transparent; transition: border-color 0.2s;
+    }
+    .color-btn.active { border-color: white; }
+    #clear-phone {
+      margin-top: 8px; background: rgba(255,50,50,0.2);
+      border: 1px solid rgba(255,50,50,0.4); color: white;
+      padding: 10px; border-radius: 12px; cursor: pointer; font-size: 14px; width: 100%;
+    }
+    #connect-screen { text-align: center; }
+    #room-input {
+      font-size: 28px; letter-spacing: 6px; text-align: center;
+      background: rgba(255,255,255,0.1); border: 2px solid rgba(255,255,255,0.2);
+      color: white; padding: 12px 20px; border-radius: 12px; width: 220px;
+      margin: 16px 0; text-transform: uppercase;
+    }
+    #connect-btn {
+      background: #4a90e2; border: none; color: white;
+      padding: 12px 30px; border-radius: 12px; font-size: 16px; cursor: pointer;
+    }
+    #main-screen { display: none; width: 100%; align-items: center; flex-direction: column; }
+    #hint { font-size: 12px; color: #555; margin-top: 12px; text-align: center; }
+  </style>
+</head>
+<body>
+
+<div id="connect-screen">
+  <h2>📱 Кисть-телефон</h2>
+  <p style="color:#888; margin-bottom:10px;">Введите код с проектора</p>
+  <input id="room-input" type="text" maxlength="6" placeholder="XXXXXX">
+  <br>
+  <button id="connect-btn">Подключиться</button>
+  <div id="conn-status" style="margin-top:12px; color:#888; font-size:13px;"></div>
+</div>
+
+<div id="main-screen">
+  <h2>🖌 Кисть готова!</h2>
+  <div id="status">Подключение...</div>
+  <div id="brush-btn">
+    <span>✏️</span>
+    <div style="font-size:14px">Зажми для рисования</div>
+  </div>
+  <div id="hint">Двигай телефон — управляй кистью<br>Зажми кнопку — рисуй!</div>
+  <div class="controls">
+    <div class="control-row">
+      <label>Размер:</label>
+      <input type="range" id="size-range" min="2" max="40" value="10">
+    </div>
+    <div class="control-row">
+      <label>Цвет:</label>
+      <div class="colors" id="palette"></div>
+    </div>
+    <div class="control-row">
+      <label>Свой цвет:</label>
+      <input type="color" id="color-pick" value="#1a1a1a">
+    </div>
+    <button id="clear-phone">🗑 Очистить холст</button>
+  </div>
+</div>
+
+<script>
+const COLORS = ['#1a1a1a','#e63946','#f4a261','#2a9d8f','#264653','#e9c46a','#a8dadc','#457b9d','#ffffff'];
+let conn, activeColor = '#1a1a1a';
+let isDrawing = false;
+let lastAlpha = null, lastBeta = null, lastGamma = null;
+
+// Check URL for room param
+const urlRoom = new URLSearchParams(location.search).get('room');
+if (urlRoom) {
+  document.getElementById('room-input').value = urlRoom.slice(-6).toUpperCase();
+  document.getElementById('connect-screen').querySelector('p').textContent = 'Код заполнен автоматически!';
+}
+
+// Build palette
+const palette = document.getElementById('palette');
+COLORS.forEach(c => {
+  const btn = document.createElement('div');
+  btn.className = 'color-btn' + (c === activeColor ? ' active' : '');
+  btn.style.background = c;
+  btn.style.border = c === '#ffffff' ? '2px solid #555' : '';
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.color-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    activeColor = c;
+    if (conn) conn.send({ type: 'color', v: c });
+  });
+  palette.appendChild(btn);
+});
+
+document.getElementById('color-pick').addEventListener('input', e => {
+  activeColor = e.target.value;
+  document.querySelectorAll('.color-btn').forEach(b => b.classList.remove('active'));
+  if (conn) conn.send({ type: 'color', v: activeColor });
+});
+
+document.getElementById('size-range').addEventListener('input', e => {
+  if (conn) conn.send({ type: 'size', v: +e.target.value });
+});
+
+document.getElementById('clear-phone').addEventListener('click', () => {
+  if (conn) conn.send({ type: 'clear' });
+});
+
+// Brush button
+const brushBtn = document.getElementById('brush-btn');
+brushBtn.addEventListener('touchstart', e => {
+  e.preventDefault(); startDraw();
+}, { passive: false });
+brushBtn.addEventListener('touchend', e => {
+  e.preventDefault(); stopDraw();
+}, { passive: false });
+brushBtn.addEventListener('mousedown', startDraw);
+brushBtn.addEventListener('mouseup', stopDraw);
+
+function startDraw() {
+  isDrawing = true;
+  brushBtn.classList.add('active');
+  brushBtn.querySelector('div').textContent = '🔴 Рисую!';
+  if (conn) conn.send({ type: 'draw', v: true });
+}
+function stopDraw() {
+  isDrawing = false;
+  brushBtn.classList.remove('active');
+  brushBtn.querySelector('div').textContent = 'Зажми для рисования';
+  if (conn) conn.send({ type: 'draw', v: false });
+}
+
+// Accelerometer
+function initAccelerometer() {
+  if (typeof DeviceMotionEvent !== 'undefined' && typeof DeviceMotionEvent.requestPermission === 'function') {
+    // iOS 13+
+    DeviceMotionEvent.requestPermission().then(r => {
+      if (r === 'granted') startListening();
+    });
+  } else {
+    startListening();
+  }
+}
+
+function startListening() {
+  window.addEventListener('deviceorientation', e => {
+    if (!conn) return;
+    const beta = e.beta || 0;   // -180..180 (наклон вперед/назад)
+    const gamma = e.gamma || 0; // -90..90 (наклон влево/вправо)
+
+    if (lastBeta !== null) {
+      const dx = (gamma - lastGamma);
+      const dy = (beta - lastBeta);
+      if (Math.abs(dx) > 0.1 || Math.abs(dy) > 0.1) {
+        conn.send({ type: 'move', dx, dy });
+      }
+    }
+    lastBeta = beta;
+    lastGamma = gamma;
+  });
+}
+
+// Connect
+const peer = new Peer({ debug: 0 });
+
+document.getElementById('connect-btn').addEventListener('click', () => {
+  const code = document.getElementById('room-input').value.trim();
+  if (!code || code.length < 4) return;
+
+  document.getElementById('conn-status').textContent = '⏳ Подключение...';
+
+  // Try to find peer by last 6 chars
+  // We need to connect using full peer ID — but we only show 6 chars
+  // So we'll use the 6-char code as a custom peer ID suffix approach
+  // Actually, we need the full ID from the URL param
+  const fullId = urlRoom || null;
+  if (fullId) {
+    connectToPeer(fullId);
+  } else {
+    document.getElementById('conn-status').textContent = '⚠️ Используйте QR-код или ссылку с проектора для автоматического подключения';
+  }
+});
+
+function connectToPeer(peerId) {
+  peer.on('open', () => {
+    conn = peer.connect(peerId, { reliable: true });
+    conn.on('open', () => {
+      document.getElementById('connect-screen').style.display = 'none';
+      document.getElementById('main-screen').style.display = 'flex';
+      document.getElementById('status').className = 'ok';
+      document.getElementById('status').textContent = '✅ Подключено к проектору!';
+      conn.send({ type: 'color', v: activeColor });
+      conn.send({ type: 'size', v: +document.getElementById('size-range').value });
+      initAccelerometer();
+    });
+    conn.on('close', () => {
+      document.getElementById('status').className = '';
+      document.getElementById('status').textContent = '❌ Соединение потеряно';
+    });
+  });
+}
+
+// Auto-connect if URL has room param
+if (urlRoom) {
+  peer.on('open', () => {
+    document.getElementById('conn-status').textContent = '⏳ Автоподключение...';
+    connectToPeer(urlRoom);
+  });
+  // Trigger connect automatically
+}
+</script>
+</body>
+</html>
