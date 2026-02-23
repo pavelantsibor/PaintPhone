@@ -2,17 +2,14 @@
 <html lang="ru">
 <head>
   <meta charset="UTF-8">
-  <title>🎨 Твори!</title>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/peerjs/1.5.2/peerjs.min.js"></script>
+  <title>🎨 Холст художника</title>
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
     body { background: #111; font-family: Arial, sans-serif; color: white; overflow: hidden; height: 100vh; }
     #ui {
       position: fixed; top: 0; left: 0; right: 0;
-      background: rgba(0,0,0,0.8);
-      padding: 10px 20px;
-      display: flex; align-items: center; gap: 16px;
-      z-index: 10; backdrop-filter: blur(8px);
+      background: rgba(0,0,0,0.85); padding: 10px 20px;
+      display: flex; align-items: center; gap: 16px; z-index: 10;
     }
     #room-code { font-size: 22px; font-weight: bold; letter-spacing: 5px; color: #ffd700; }
     #status { font-size: 13px; padding: 4px 12px; border-radius: 20px; background: rgba(255,200,0,0.2); color: #ffd700; }
@@ -20,66 +17,67 @@
     #clear-btn {
       margin-left: auto; background: rgba(255,50,50,0.3);
       border: 1px solid rgba(255,50,50,0.5); color: white;
-      padding: 5px 14px; border-radius: 20px; cursor: pointer;
+      padding: 5px 14px; border-radius: 20px; cursor: pointer; font-size: 14px;
     }
     #canvas-wrap { position: absolute; top: 50px; left: 0; right: 0; bottom: 0; }
     canvas#c { display: block; width: 100%; height: 100%; }
     #brush {
       position: fixed; border-radius: 50%; pointer-events: none;
-      transform: translate(-50%, -50%); border: 2px solid #333;
-      transition: left 0.04s, top 0.04s;
+      transform: translate(-50%, -50%); border: 3px solid #333;
+      z-index: 5;
     }
     #overlay {
-      position: fixed; inset: 0; background: rgba(0,0,0,0.9);
+      position: fixed; inset: 0; background: rgba(0,0,0,0.92);
       display: flex; flex-direction: column; align-items: center; justify-content: center;
-      z-index: 100;
+      z-index: 100; gap: 10px;
     }
-    #overlay h2 { font-size: 26px; margin-bottom: 8px; }
-    #overlay p { color: #aaa; margin-bottom: 20px; }
-    #code-big { font-size: 52px; font-weight: bold; letter-spacing: 12px; color: #ffd700; margin: 10px 0; }
-    #phone-url { font-size: 13px; color: #aaa; max-width: 500px; text-align: center; margin-top: 10px; word-break: break-all; }
-    #qr { background: white; padding: 12px; border-radius: 10px; margin-bottom: 10px; }
-    @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.4} }
-    #wait { animation: pulse 1.5s infinite; color: #888; font-size: 14px; margin-top: 16px; }
+    #overlay h2 { font-size: 28px; }
+    #overlay p { color: #aaa; font-size: 15px; }
+    #code-big { font-size: 56px; font-weight: bold; letter-spacing: 14px; color: #ffd700; margin: 6px 0; }
+    #qr-img { border-radius: 12px; }
+    #phone-url {
+      font-size: 13px; color: #6af; max-width: 600px; text-align: center;
+      word-break: break-all; background: rgba(255,255,255,0.05);
+      padding: 8px 14px; border-radius: 8px;
+    }
+    #debug { font-size: 11px; color: #555; margin-top: 4px; }
+    @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.3} }
+    #wait { animation: pulse 1.5s infinite; color: #666; font-size: 13px; }
   </style>
 </head>
 <body>
 
 <div id="ui">
-  <span>🎨 Холст художника</span>
+  <span>🎨 Холст</span>
   <div id="room-code">—</div>
-  <div id="status">⏳ Ожидание телефона</div>
+  <div id="status">⏳ Ожидание</div>
   <button id="clear-btn">🗑 Очистить</button>
 </div>
 
-<div id="canvas-wrap">
-  <canvas id="c"></canvas>
-</div>
-
+<div id="canvas-wrap"><canvas id="c"></canvas></div>
 <div id="brush"></div>
 
 <div id="overlay">
   <h2>📱 Подключите телефон-кисть</h2>
-  <p>Откройте на телефоне ссылку ниже или отсканируйте QR</p>
-  <div id="qr"></div>
+  <p>Отсканируйте QR или откройте ссылку на телефоне</p>
+  <img id="qr-img" width="200" height="200" src="" alt="QR">
   <div id="code-big">—</div>
-  <div id="phone-url">Генерация ссылки...</div>
-  <div id="wait">Ожидание подключения...</div>
+  <div id="phone-url">Подключение к серверу...</div>
+  <div id="wait">⏳ Ожидание телефона...</div>
+  <div id="debug"></div>
 </div>
 
 <script>
+// Canvas setup
 const canvas = document.getElementById('c');
 const ctx = canvas.getContext('2d');
 const brush = document.getElementById('brush');
-const overlay = document.getElementById('overlay');
 
 function resize() {
-  const w = canvas.parentElement.offsetWidth;
-  const h = canvas.parentElement.offsetHeight;
-  const img = ctx.getImageData(0, 0, canvas.width, canvas.height);
-  canvas.width = w; canvas.height = h;
+  canvas.width = canvas.parentElement.offsetWidth;
+  canvas.height = canvas.parentElement.offsetHeight;
   ctx.fillStyle = 'white';
-  ctx.fillRect(0, 0, w, h);
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
 }
 resize();
 window.addEventListener('resize', resize);
@@ -91,78 +89,110 @@ let nx = 0.5, ny = 0.5;
 function draw() {
   const x = nx * canvas.width;
   const y = ny * canvas.height;
-  const screenY = 50 + ny * (window.innerHeight - 50);
-  brush.style.left = (nx * 100) + '%';
-  brush.style.top = screenY + 'px';
+  brush.style.left = (nx * 100) + 'vw';
+  brush.style.top = (50 + ny * (window.innerHeight - 50)) + 'px';
   brush.style.width = size * 2 + 'px';
   brush.style.height = size * 2 + 'px';
   brush.style.background = isDrawing ? color : 'transparent';
   brush.style.borderColor = color;
-
   if (!isDrawing || lastX === null) { lastX = x; lastY = y; return; }
-  ctx.strokeStyle = color;
-  ctx.lineWidth = size;
+  ctx.strokeStyle = color; ctx.lineWidth = size;
   ctx.lineCap = 'round'; ctx.lineJoin = 'round';
-  ctx.beginPath();
-  ctx.moveTo(lastX, lastY);
-  ctx.lineTo(x, y);
-  ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(lastX, lastY); ctx.lineTo(x, y); ctx.stroke();
   lastX = x; lastY = y;
 }
 
-// PeerJS
-const peer = new Peer({ debug: 0 });
-
-peer.on('open', id => {
-  const code = id.slice(-6).toUpperCase();
-  document.getElementById('room-code').textContent = code;
-  document.getElementById('code-big').textContent = code;
-
-  const base = location.href.replace('index.html', '').replace(/\/$/, '');
-  const phoneUrl = base + '/phone.html?room=' + id;
-  document.getElementById('phone-url').textContent = phoneUrl;
-
-  // Simple QR via API
-  const qrDiv = document.getElementById('qr');
-  const img = document.createElement('img');
-  img.src = 'https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=' + encodeURIComponent(phoneUrl);
-  img.width = 180; img.height = 180;
-  qrDiv.appendChild(img);
-});
-
-peer.on('connection', conn => {
-  conn.on('open', () => {
-    overlay.style.display = 'none';
-    document.getElementById('status').className = 'connected';
-    document.getElementById('status').textContent = '✅ Подключён';
-  });
-  conn.on('data', d => {
-    if (d.type === 'move') {
-      nx = Math.max(0, Math.min(1, nx + d.dx * 0.012));
-      ny = Math.max(0, Math.min(1, ny + d.dy * 0.012));
-      draw();
-    } else if (d.type === 'draw') {
-      isDrawing = d.v;
-      if (!isDrawing) { lastX = null; lastY = null; }
-      draw();
-    } else if (d.type === 'color') { color = d.v; brush.style.borderColor = color; }
-    else if (d.type === 'size') { size = d.v; }
-    else if (d.type === 'clear') {
-      ctx.fillStyle = 'white'; ctx.fillRect(0, 0, canvas.width, canvas.height);
-      lastX = null; lastY = null;
-    }
-  });
-  conn.on('close', () => {
-    document.getElementById('status').className = '';
-    document.getElementById('status').textContent = '⏳ Отключился';
-    overlay.style.display = 'flex';
-    lastX = null; lastY = null; isDrawing = false;
-  });
-});
+function handleData(d) {
+  if (d.type === 'move') {
+    nx = Math.max(0, Math.min(1, nx + d.dx * 0.012));
+    ny = Math.max(0, Math.min(1, ny + d.dy * 0.012));
+    draw();
+  } else if (d.type === 'draw') {
+    isDrawing = d.v; if (!isDrawing) { lastX = null; lastY = null; } draw();
+  } else if (d.type === 'color') { color = d.v; }
+  else if (d.type === 'size') { size = d.v; }
+  else if (d.type === 'clear') {
+    ctx.fillStyle = 'white'; ctx.fillRect(0, 0, canvas.width, canvas.height);
+    lastX = null; lastY = null;
+  }
+}
 
 document.getElementById('clear-btn').addEventListener('click', () => {
   ctx.fillStyle = 'white'; ctx.fillRect(0, 0, canvas.width, canvas.height);
 });
+
+// === PEERJS с несколькими серверами-запасными ===
+const debug = document.getElementById('debug');
+let peer, peerReady = false;
+
+function setDebug(msg) { debug.textContent = msg; }
+function setUrl(peerId) {
+  const base = location.href.replace(/\/[^/]*$/, '');
+  const phoneUrl = base + '/phone.html?room=' + peerId;
+  document.getElementById('phone-url').textContent = phoneUrl;
+  document.getElementById('qr-img').src =
+    'https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=' + encodeURIComponent(phoneUrl);
+  const code = peerId.slice(-6).toUpperCase();
+  document.getElementById('room-code').textContent = code;
+  document.getElementById('code-big').textContent = code;
+}
+
+function tryPeer(config, attempt) {
+  setDebug('Попытка ' + attempt + '...');
+  if (peer) { try { peer.destroy(); } catch(e) {} }
+
+  peer = config ? new Peer(config) : new Peer();
+
+  const timeout = setTimeout(() => {
+    setDebug('Таймаут попытки ' + attempt);
+    if (!peerReady) tryNext(attempt);
+  }, 6000);
+
+  peer.on('open', id => {
+    clearTimeout(timeout);
+    peerReady = true;
+    setDebug('✅ Сервер: ' + (attempt === 1 ? 'default' : attempt === 2 ? 'peerjs.com' : 'custom'));
+    setUrl(id);
+  });
+
+  peer.on('error', e => {
+    clearTimeout(timeout);
+    setDebug('Ошибка попытки ' + attempt + ': ' + e.type);
+    if (!peerReady) tryNext(attempt);
+  });
+
+  peer.on('connection', conn => {
+    conn.on('open', () => {
+      document.getElementById('overlay').style.display = 'none';
+      document.getElementById('status').className = 'connected';
+      document.getElementById('status').textContent = '✅ Телефон подключён';
+    });
+    conn.on('data', handleData);
+    conn.on('close', () => {
+      document.getElementById('status').className = '';
+      document.getElementById('status').textContent = '⏳ Отключился';
+      document.getElementById('overlay').style.display = 'flex';
+      isDrawing = false; lastX = null; lastY = null;
+    });
+  });
+}
+
+function tryNext(attempt) {
+  if (attempt === 1) {
+    tryPeer({ host: '0.peerjs.com', port: 443, path: '/', secure: true,
+      config: { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] }
+    }, 2);
+  } else if (attempt === 2) {
+    tryPeer({ host: 'peerjs.herokuapp.com', port: 443, path: '/', secure: true }, 3);
+  } else {
+    setDebug('❌ Не удалось подключиться ни к одному серверу. Проверьте интернет на проекторе.');
+    document.getElementById('phone-url').textContent = '⚠️ Нет соединения с интернетом или WebRTC заблокирован';
+    document.getElementById('wait').textContent = '❌ Попробуйте перезагрузить страницу';
+  }
+}
+
+// Начинаем с дефолтного PeerJS
+tryPeer(null, 1);
 </script>
 </body>
 </html>
