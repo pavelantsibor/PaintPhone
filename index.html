@@ -2,254 +2,389 @@
 <html lang="ru">
 <head>
   <meta charset="UTF-8">
-  <title>🎨 Холст</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <title>🎨 Кисть-холст</title>
   <style>
     * { margin:0; padding:0; box-sizing:border-box; }
-    body { background:#111; color:white; font-family:Arial,sans-serif; overflow:hidden; height:100vh; }
-
-    #ui {
-      position:fixed; top:0; left:0; right:0; height:52px;
-      background:rgba(0,0,0,0.9); border-bottom:1px solid rgba(255,255,255,0.08);
-      display:flex; align-items:center; gap:14px; padding:0 20px; z-index:10;
-    }
-    #dot { width:10px; height:10px; border-radius:50%; background:#ffd700; flex-shrink:0; }
-    #dot.on { background:#00ff88; box-shadow:0 0 8px #00ff88; }
-    #ui-status { font-size:14px; color:#aaa; }
-    #clear-btn {
-      margin-left:auto; background:rgba(255,60,60,0.25);
-      border:1px solid rgba(255,60,60,0.4); color:white;
-      padding:6px 18px; border-radius:20px; cursor:pointer; font-size:13px;
+    body {
+      background:#09091a; color:white; font-family:Arial,sans-serif;
+      height:100vh; overflow:hidden; display:flex; align-items:center; justify-content:center;
     }
 
-    #canvas-wrap { position:absolute; top:52px; left:0; right:0; bottom:0; }
-    canvas { width:100%; height:100%; display:block; }
-
-    #brush {
-      position:fixed; border-radius:50%; pointer-events:none;
-      transform:translate(-50%,-50%); border:3px solid #333;
-      z-index:5; display:none;
+    /* ── Главный экран ── */
+    #s-home {
+      display:flex; flex-direction:column; align-items:center; gap:20px; padding:30px;
     }
-
-    /* Оверлей */
-    #overlay {
-      position:fixed; inset:0; background:#09091a;
-      display:flex; flex-direction:column; align-items:center; justify-content:center;
-      z-index:100; gap:16px; padding:20px;
+    #s-home h1 { font-size:36px; }
+    #s-home p  { color:#666; font-size:15px; }
+    .big-btn {
+      width:260px; padding:18px; border-radius:18px; border:none;
+      font-size:18px; cursor:pointer; transition:transform .1s, opacity .1s;
     }
-    h1 { font-size:28px; }
-    .sub { color:#666; font-size:15px; text-align:center; }
+    .big-btn:active { transform:scale(.97); opacity:.85; }
+    #btn-host  { background:#4a90e2; color:white; }
+    #btn-phone { background:rgba(255,255,255,0.08); color:white; border:1px solid rgba(255,255,255,0.15); }
 
-    /* Шаги */
-    .step {
-      width:100%; max-width:600px;
-      background:rgba(255,255,255,0.04); border:1px solid rgba(255,255,255,0.1);
-      border-radius:16px; padding:18px 22px;
-    }
-    .step-title { font-size:13px; color:#888; text-transform:uppercase; letter-spacing:1px; margin-bottom:10px; }
+    /* ── Экраны ── */
+    .screen { display:none; flex-direction:column; align-items:center; gap:14px; padding:24px; width:100%; max-width:580px; }
+    .screen.active { display:flex; }
 
-    /* Код оффер */
-    #offer-box {
-      font-size:11px; font-family:'Courier New',monospace;
-      background:#000; color:#0f0; padding:12px; border-radius:10px;
-      word-break:break-all; line-height:1.5; max-height:80px; overflow:hidden;
-      margin-bottom:10px;
-    }
-    #copy-btn {
-      background:#4a90e2; border:none; color:white;
-      padding:8px 20px; border-radius:10px; cursor:pointer; font-size:14px;
-    }
-    #copy-btn:active { background:#2a70c2; }
+    h2 { font-size:22px; }
+    .sub { color:#666; font-size:13px; text-align:center; }
 
-    /* Поле ввода ответа */
-    #answer-area {
-      width:100%; font-size:11px; font-family:'Courier New',monospace;
-      background:#000; color:#0f0; border:1px solid rgba(255,255,255,0.15);
-      border-radius:10px; padding:10px; height:80px; resize:none;
-      margin-bottom:10px;
+    /* Код */
+    .code-box {
+      width:100%; background:#000; color:#0f0;
+      font-family:'Courier New',monospace; font-size:11px;
+      padding:12px; border-radius:10px; word-break:break-all;
+      max-height:75px; overflow:hidden; line-height:1.5;
+      border:1px solid rgba(0,255,0,0.2);
     }
-    #connect-btn {
-      background:#00c853; border:none; color:white;
-      padding:8px 24px; border-radius:10px; cursor:pointer; font-size:14px;
+    textarea.code-box { resize:none; height:75px; width:100%; outline:none; }
+
+    .btn {
+      width:100%; padding:13px; border-radius:13px; border:none;
+      font-size:16px; cursor:pointer; color:white;
     }
-    #connect-btn:disabled { background:#333; color:#666; cursor:default; }
+    .btn-blue  { background:#4a90e2; }
+    .btn-green { background:#00c853; }
+    .btn-red   { background:rgba(255,50,50,0.25); border:1px solid rgba(255,50,50,0.35); }
+    .btn:active { opacity:.8; }
+    .btn:disabled { background:#333; color:#555; cursor:default; }
 
-    #step2 { opacity:0.4; pointer-events:none; transition:opacity .3s; }
-    #step2.active { opacity:1; pointer-events:auto; }
+    .lbl { font-size:12px; color:#888; text-transform:uppercase; letter-spacing:1px; align-self:flex-start; }
+    #msg { font-size:13px; color:#888; min-height:16px; text-align:center; }
 
-    #conn-status { font-size:13px; color:#888; min-height:18px; }
-    @keyframes blink { 0%,100%{opacity:1} 50%{opacity:.2} }
-    .blinking { animation:blink 1.5s infinite; }
+    /* ── Холст (хост) ── */
+    #s-canvas {
+      position:fixed; inset:0; display:none; flex-direction:column;
+    }
+    #s-canvas.active { display:flex; }
+    #topbar {
+      height:48px; background:rgba(0,0,0,0.9); display:flex;
+      align-items:center; gap:12px; padding:0 16px; flex-shrink:0;
+      border-bottom:1px solid rgba(255,255,255,0.07);
+      z-index:10;
+    }
+    #dot { width:9px; height:9px; border-radius:50%; background:#ffd700; }
+    #dot.on { background:#00ff88; box-shadow:0 0 6px #00ff88; }
+    #bar-status { font-size:13px; color:#aaa; }
+    #btn-clear { margin-left:auto; background:rgba(255,50,50,.25); border:1px solid rgba(255,50,50,.4); color:white; padding:5px 14px; border-radius:16px; cursor:pointer; font-size:13px; }
+    #btn-reconnect { background:rgba(74,144,226,.25); border:1px solid rgba(74,144,226,.4); color:white; padding:5px 14px; border-radius:16px; cursor:pointer; font-size:13px; }
+    canvas { flex:1; display:block; }
+    #brush { position:fixed; border-radius:50%; pointer-events:none; transform:translate(-50%,-50%); border:3px solid #333; z-index:5; display:none; }
+
+    /* ── Экран рисования (телефон) ── */
+    #brush-btn {
+      width:175px; height:175px; border-radius:50%; margin:4px 0;
+      background:radial-gradient(circle at 40% 35%, #2a5298, #0e1f4a);
+      border:5px solid #4a90e2; cursor:pointer;
+      display:flex; flex-direction:column; align-items:center; justify-content:center; gap:4px;
+      box-shadow:0 0 35px rgba(74,144,226,.3);
+      -webkit-tap-highlight-color:transparent;
+      transition:transform .1s, background .15s;
+    }
+    #brush-btn.on {
+      background:radial-gradient(circle at 40% 35%, #8b0000, #3a0000);
+      border-color:#ff4444; box-shadow:0 0 45px rgba(255,68,68,.5);
+      transform:scale(.93);
+    }
+    #brush-btn .ico { font-size:46px; pointer-events:none; }
+    #brush-btn .lbl2 { font-size:12px; color:rgba(255,255,255,.7); pointer-events:none; }
+    #hint { font-size:11px; color:#444; text-align:center; }
+    .ctrl { width:100%; }
+    .ctrl label { font-size:12px; color:#888; display:block; margin-bottom:4px; }
+    input[type=range] { width:100%; accent-color:#4a90e2; }
+    .palette { display:flex; gap:8px; flex-wrap:wrap; margin-top:6px; }
+    .cb { width:34px; height:34px; border-radius:50%; cursor:pointer; border:3px solid transparent; transition:border-color .15s, transform .1s; -webkit-tap-highlight-color:transparent; }
+    .cb.sel { border-color:white; transform:scale(1.15); }
+    input[type=color] { width:44px; height:34px; border:none; border-radius:8px; cursor:pointer; margin-top:6px; }
   </style>
 </head>
 <body>
 
-<div id="ui">
-  <div id="dot"></div>
-  <div id="ui-status">Ожидание телефона...</div>
-  <button id="clear-btn">🗑 Очистить</button>
+<!-- ── Главный экран ── -->
+<div id="s-home">
+  <h1>🎨 Холст</h1>
+  <p>Что вы хотите сделать?</p>
+  <button class="big-btn" id="btn-host">🖥 Открыть холст<br><small style="font-size:13px;opacity:.7">на проекторе / большом экране</small></button>
+  <button class="big-btn" id="btn-phone">📱 Подключить кисть<br><small style="font-size:13px;opacity:.7">с телефона</small></button>
 </div>
 
-<div id="canvas-wrap"><canvas id="c"></canvas></div>
-<div id="brush"></div>
+<!-- ── Хост: показать код ── -->
+<div class="screen" id="s-host-code">
+  <h2>🖥 Холст готов</h2>
+  <p class="sub">Скопируйте код и передайте на телефон</p>
+  <div class="lbl">Ваш код (шаг 1):</div>
+  <div class="code-box" id="offer-box">Генерация...</div>
+  <button class="btn btn-blue" id="btn-copy-offer">📋 Скопировать код</button>
+  <div class="lbl" style="margin-top:4px">Вставьте ответный код с телефона (шаг 2):</div>
+  <textarea class="code-box" id="answer-input" placeholder="Вставьте сюда ответ с телефона..."></textarea>
+  <button class="btn btn-green" id="btn-apply-answer">🔗 Подключить!</button>
+  <div id="msg"></div>
+</div>
 
-<div id="overlay">
-  <h1>🎨 Холст художника</h1>
-  <p class="sub">Подключите телефон-кисть — два шага</p>
-
-  <!-- Шаг 1: скопировать оффер -->
-  <div class="step" id="step1">
-    <div class="step-title">Шаг 1 — Скопируйте этот код и введите его на телефоне</div>
-    <div id="offer-box" class="blinking">Генерация кода...</div>
-    <button id="copy-btn">📋 Скопировать код</button>
+<!-- ── Телефон: ввести код ── -->
+<div class="screen" id="s-phone-code">
+  <h2>📱 Телефон-кисть</h2>
+  <p class="sub">Вставьте код с проектора</p>
+  <div class="lbl">Код с проектора (шаг 1):</div>
+  <textarea class="code-box" id="offer-input" placeholder="Вставьте сюда код с проектора..."></textarea>
+  <button class="btn btn-blue" id="btn-process-offer">⚡ Обработать</button>
+  <div id="msg2"></div>
+  <div id="answer-section" style="display:none;width:100%;display:none;flex-direction:column;gap:10px">
+    <div class="lbl">Ваш ответный код (шаг 2) — скопируйте и введите на проекторе:</div>
+    <div class="code-box" id="answer-box">...</div>
+    <button class="btn btn-green" id="btn-copy-answer">📋 Скопировать ответный код</button>
   </div>
+</div>
 
-  <!-- Шаг 2: вставить ответ -->
-  <div class="step" id="step2">
-    <div class="step-title">Шаг 2 — Вставьте ответный код с телефона сюда</div>
-    <textarea id="answer-area" placeholder="Вставьте ответный код с телефона..."></textarea>
-    <button id="connect-btn">🔗 Подключиться</button>
+<!-- ── Холст (хост) ── -->
+<div id="s-canvas">
+  <div id="topbar">
+    <div id="dot"></div>
+    <div id="bar-status">Ожидание телефона...</div>
+    <button id="btn-reconnect">🔄 Переподключить</button>
+    <button id="btn-clear">🗑 Очистить</button>
   </div>
+  <canvas id="c"></canvas>
+  <div id="brush"></div>
+</div>
 
-  <div id="conn-status"></div>
+<!-- ── Рисование (телефон) ── -->
+<div class="screen" id="s-draw" style="overflow-y:auto;height:100vh;justify-content:flex-start;padding-top:20px">
+  <h2>🖌 Кисть активна!</h2>
+  <div id="brush-btn">
+    <div class="ico">✏️</div>
+    <div class="lbl2">Зажми — рисуй</div>
+  </div>
+  <div id="hint">Наклоняй телефон → двигай кисть<br>Зажми кнопку → рисуй</div>
+  <div class="ctrl">
+    <label>Размер: <span id="sz-val">10</span>px</label>
+    <input type="range" id="sz" min="2" max="50" value="10">
+  </div>
+  <div class="ctrl">
+    <label>Цвет:</label>
+    <div class="palette" id="palette"></div>
+    <input type="color" id="cpick" value="#1a1a1a">
+  </div>
+  <button class="btn btn-red" id="btn-clear-phone" style="margin-top:4px">🗑 Очистить холст</button>
 </div>
 
 <script>
-// ── Canvas ──────────────────────────────────────
-const canvas = document.getElementById('c');
-const ctx    = canvas.getContext('2d');
-const brush  = document.getElementById('brush');
-
-function resize() {
-  canvas.width  = canvas.parentElement.offsetWidth;
-  canvas.height = canvas.parentElement.offsetHeight;
-  ctx.fillStyle = 'white';
-  ctx.fillRect(0, 0, canvas.width, canvas.height);
-}
-resize();
-window.addEventListener('resize', resize);
-
-let drawing=false, lx=null, ly=null, color='#1a1a1a', size=10, nx=.5, ny=.5;
-
-function drawStep() {
-  const x = nx * canvas.width, y = ny * canvas.height;
-  brush.style.display    = 'block';
-  brush.style.left       = (nx*100)+'vw';
-  brush.style.top        = (52 + ny*(window.innerHeight-52))+'px';
-  brush.style.width      = brush.style.height = size*2+'px';
-  brush.style.background = drawing ? color : 'transparent';
-  brush.style.borderColor= color;
-  if (!drawing || lx===null) { lx=x; ly=y; return; }
-  ctx.strokeStyle=color; ctx.lineWidth=size;
-  ctx.lineCap=ctx.lineJoin='round';
-  ctx.beginPath(); ctx.moveTo(lx,ly); ctx.lineTo(x,y); ctx.stroke();
-  lx=x; ly=y;
-}
-
-function clearCanvas() {
-  ctx.fillStyle='white'; ctx.fillRect(0,0,canvas.width,canvas.height);
-  lx=ly=null;
-}
-document.getElementById('clear-btn').addEventListener('click', clearCanvas);
-
-// ── WebRTC ──────────────────────────────────────
-let pc, dc;
-
-async function init() {
-  pc = new RTCPeerConnection({ iceServers:[] }); // без серверов — локальная сеть!
-
-  dc = pc.createDataChannel('paint');
-  dc.onopen    = onConnected;
-  dc.onmessage = e => handleCmd(JSON.parse(e.data));
-  dc.onclose   = onDisconnected;
-
-  // Ждём ICE кандидатов и формируем полный оффер
-  const offer = await pc.createOffer();
-  await pc.setLocalDescription(offer);
-
-  await waitIce(pc);
-
-  // Показываем сжатый оффер
-  const offerStr = compress(JSON.stringify(pc.localDescription));
-  document.getElementById('offer-box').textContent = offerStr;
-  document.getElementById('offer-box').classList.remove('blinking');
-
-  // Активируем шаг 2
-  document.getElementById('step2').classList.add('active');
-
-  document.getElementById('copy-btn').addEventListener('click', () => {
-    navigator.clipboard.writeText(offerStr).then(() => {
-      document.getElementById('copy-btn').textContent = '✅ Скопировано!';
-      setTimeout(()=>document.getElementById('copy-btn').textContent='📋 Скопировать код', 2000);
-    }).catch(() => {
-      // Фоллбэк для Android TV
-      const ta = document.createElement('textarea');
-      ta.value = offerStr; document.body.appendChild(ta);
-      ta.select(); document.execCommand('copy'); document.body.removeChild(ta);
-      document.getElementById('copy-btn').textContent = '✅ Скопировано!';
-      setTimeout(()=>document.getElementById('copy-btn').textContent='📋 Скопировать код', 2000);
-    });
+// ── Утилиты ─────────────────────────────────────────────
+function show(id) {
+  ['s-home','s-host-code','s-phone-code','s-canvas','s-draw'].forEach(s => {
+    const el = document.getElementById(s);
+    if (el) { el.classList.remove('active'); el.style.display=''; }
   });
-
-  document.getElementById('connect-btn').addEventListener('click', async () => {
-    const answerStr = document.getElementById('answer-area').value.trim();
-    if (!answerStr) return;
-    document.getElementById('conn-status').textContent = '⏳ Подключение...';
-    try {
-      const answer = JSON.parse(decompress(answerStr));
-      await pc.setRemoteDescription(answer);
-    } catch(e) {
-      document.getElementById('conn-status').textContent = '❌ Неверный код: ' + e.message;
-    }
-  });
+  const target = document.getElementById(id);
+  if (id === 's-canvas') { target.style.display='flex'; }
+  else { target.classList.add('active'); target.style.display='flex'; }
 }
 
-function waitIce(pc) {
-  return new Promise(resolve => {
-    if (pc.iceGatheringState === 'complete') { resolve(); return; }
-    pc.onicegatheringstatechange = () => {
-      if (pc.iceGatheringState === 'complete') resolve();
-    };
-    setTimeout(resolve, 4000); // максимум 4 сек
-  });
-}
-
-function onConnected() {
-  document.getElementById('overlay').style.display = 'none';
-  document.getElementById('dot').className = 'on';
-  document.getElementById('ui-status').textContent = '✅ Телефон подключён';
-}
-
-function onDisconnected() {
-  document.getElementById('overlay').style.display = 'flex';
-  document.getElementById('dot').className = '';
-  document.getElementById('ui-status').textContent = 'Телефон отключился';
-  drawing=false; lx=ly=null;
-  init(); // перезапускаем
-}
-
-function handleCmd(cmd) {
-  if (cmd.t==='m') {
-    nx = Math.max(0, Math.min(1, nx + cmd.x * 0.013));
-    ny = Math.max(0, Math.min(1, ny + cmd.y * 0.013));
-    drawStep();
-  } else if (cmd.t==='d') {
-    drawing=cmd.v; if(!drawing){lx=ly=null;} drawStep();
-  } else if (cmd.t==='c') { color=cmd.v; }
-  else if (cmd.t==='s')   { size=cmd.v; }
-  else if (cmd.t==='clr') { clearCanvas(); }
-}
-
-// ── Сжатие (base64) ─────────────────────────────
 function compress(str) {
   return btoa(encodeURIComponent(str).replace(/%([0-9A-F]{2})/g,
-    (m,p1)=>String.fromCharCode('0x'+p1)));
+    (_,p)=>String.fromCharCode('0x'+p)));
 }
 function decompress(str) {
   return decodeURIComponent(Array.from(atob(str),
     c=>'%'+('00'+c.charCodeAt(0).toString(16)).slice(-2)).join(''));
 }
+function copyText(text, btn, label) {
+  navigator.clipboard.writeText(text).catch(()=>{
+    const t=document.createElement('textarea'); t.value=text;
+    document.body.appendChild(t); t.select(); document.execCommand('copy'); document.body.removeChild(t);
+  });
+  btn.textContent='✅ Скопировано!';
+  setTimeout(()=>btn.textContent=label, 2000);
+}
 
-init();
+// ── WebRTC ───────────────────────────────────────────────
+let pc, dc;
+function waitIce(p) {
+  return new Promise(r=>{
+    if(p.iceGatheringState==='complete'){r();return;}
+    p.onicegatheringstatechange=()=>{if(p.iceGatheringState==='complete')r();};
+    setTimeout(r, 4000);
+  });
+}
+
+// ── ХОСТ ────────────────────────────────────────────────
+document.getElementById('btn-host').addEventListener('click', async ()=>{
+  show('s-host-code');
+  document.getElementById('offer-box').textContent = 'Генерация...';
+
+  pc = new RTCPeerConnection({iceServers:[]});
+  dc = pc.createDataChannel('paint');
+  dc.onopen    = ()=>{ show('s-canvas'); initCanvas(); document.getElementById('dot').className='on'; document.getElementById('bar-status').textContent='✅ Телефон подключён'; };
+  dc.onmessage = e=>handleCmd(JSON.parse(e.data));
+  dc.onclose   = ()=>{ document.getElementById('dot').className=''; document.getElementById('bar-status').textContent='⚠️ Телефон отключился'; };
+
+  const offer = await pc.createOffer();
+  await pc.setLocalDescription(offer);
+  await waitIce(pc);
+
+  const code = compress(JSON.stringify(pc.localDescription));
+  document.getElementById('offer-box').textContent = code;
+
+  document.getElementById('btn-copy-offer').addEventListener('click', ()=>{
+    copyText(code, document.getElementById('btn-copy-offer'), '📋 Скопировать код');
+  });
+
+  document.getElementById('btn-apply-answer').addEventListener('click', async ()=>{
+    const raw = document.getElementById('answer-input').value.trim();
+    if (!raw) return;
+    document.getElementById('msg').textContent = '⏳ Подключение...';
+    try {
+      await pc.setRemoteDescription(JSON.parse(decompress(raw)));
+      document.getElementById('msg').textContent = '⏳ Ожидаем телефон...';
+    } catch(e) {
+      document.getElementById('msg').textContent = '❌ Неверный код: ' + e.message;
+    }
+  });
+});
+
+// Переподключить — перезапустить всё
+document.getElementById('btn-reconnect').addEventListener('click', ()=>{
+  show('s-home');
+});
+
+// ── ТЕЛЕФОН ──────────────────────────────────────────────
+document.getElementById('btn-phone').addEventListener('click', ()=>show('s-phone-code'));
+
+document.getElementById('btn-process-offer').addEventListener('click', async ()=>{
+  const raw = document.getElementById('offer-input').value.trim();
+  if (!raw) return;
+  document.getElementById('msg2').textContent = '⏳ Обработка...';
+
+  try {
+    const offer = JSON.parse(decompress(raw));
+    pc = new RTCPeerConnection({iceServers:[]});
+    pc.ondatachannel = e=>{
+      dc = e.channel;
+      dc.onopen  = ()=>{ show('s-draw'); initGyro(); };
+      dc.onclose = ()=>{ show('s-phone-code'); document.getElementById('msg2').textContent='⚠️ Соединение потеряно'; };
+    };
+
+    await pc.setRemoteDescription(offer);
+    const answer = await pc.createAnswer();
+    await pc.setLocalDescription(answer);
+    await waitIce(pc);
+
+    const ansCode = compress(JSON.stringify(pc.localDescription));
+    document.getElementById('answer-box').textContent = ansCode;
+    const sec = document.getElementById('answer-section');
+    sec.style.display='flex';
+
+    document.getElementById('btn-copy-answer').addEventListener('click', ()=>{
+      copyText(ansCode, document.getElementById('btn-copy-answer'), '📋 Скопировать ответный код');
+    });
+
+    document.getElementById('msg2').textContent = '👆 Теперь введите ответный код на проекторе';
+  } catch(e) {
+    document.getElementById('msg2').textContent = '❌ Ошибка: ' + e.message;
+  }
+});
+
+// ── ХОЛСТ ────────────────────────────────────────────────
+let drawing=false, lx=null, ly=null, color='#1a1a1a', size=10, nx=.5, ny=.5;
+let canvasReady = false;
+
+function initCanvas() {
+  if (canvasReady) return;
+  canvasReady = true;
+  const canvas = document.getElementById('c');
+  const ctx = canvas.getContext('2d');
+  const brush = document.getElementById('brush');
+
+  function resize() {
+    canvas.width  = canvas.offsetWidth;
+    canvas.height = canvas.offsetHeight;
+    ctx.fillStyle = 'white';
+    ctx.fillRect(0,0,canvas.width,canvas.height);
+  }
+  resize();
+  window.addEventListener('resize', resize);
+
+  function drawStep() {
+    const x=nx*canvas.width, y=ny*canvas.height;
+    brush.style.display='block';
+    brush.style.left=(nx*100)+'vw';
+    brush.style.top=(48+ny*(window.innerHeight-48))+'px';
+    brush.style.width=brush.style.height=size*2+'px';
+    brush.style.background=drawing?color:'transparent';
+    brush.style.borderColor=color;
+    if(!drawing||lx===null){lx=x;ly=y;return;}
+    ctx.strokeStyle=color; ctx.lineWidth=size; ctx.lineCap=ctx.lineJoin='round';
+    ctx.beginPath(); ctx.moveTo(lx,ly); ctx.lineTo(x,y); ctx.stroke();
+    lx=x; ly=y;
+  }
+
+  window._drawStep = drawStep;
+  window._clearCanvas = ()=>{ ctx.fillStyle='white'; ctx.fillRect(0,0,canvas.width,canvas.height); lx=ly=null; };
+  document.getElementById('btn-clear').addEventListener('click', window._clearCanvas);
+}
+
+function handleCmd(cmd) {
+  if (cmd.t==='m') {
+    nx=Math.max(0,Math.min(1,nx+cmd.x*.013));
+    ny=Math.max(0,Math.min(1,ny+cmd.y*.013));
+    if(window._drawStep) window._drawStep();
+  } else if(cmd.t==='d') {
+    drawing=cmd.v; if(!drawing){lx=ly=null;} if(window._drawStep) window._drawStep();
+  } else if(cmd.t==='c') { color=cmd.v; }
+  else if(cmd.t==='s')   { size=cmd.v; }
+  else if(cmd.t==='clr') { if(window._clearCanvas) window._clearCanvas(); }
+}
+
+// ── ГИРОСКОП ────────────────────────────────────────────
+let lb=null, lg=null;
+function initGyro() {
+  const go = ()=>window.addEventListener('deviceorientation', e=>{
+    const b=e.beta||0, g=e.gamma||0;
+    if(lb!==null){ const dx=g-lg, dy=b-lb; if(Math.abs(dx)>.3||Math.abs(dy)>.3) send({t:'m',x:dx,y:dy}); }
+    lb=b; lg=g;
+  });
+  if(typeof DeviceMotionEvent!=='undefined'&&typeof DeviceMotionEvent.requestPermission==='function')
+    DeviceMotionEvent.requestPermission().then(r=>{ if(r==='granted') go(); }).catch(go);
+  else go();
+}
+
+function send(obj) { if(dc&&dc.readyState==='open') dc.send(JSON.stringify(obj)); }
+
+// ── КНОПКА КИСТЬ ────────────────────────────────────────
+const bb = document.getElementById('brush-btn');
+bb.addEventListener('touchstart', e=>{ e.preventDefault(); send({t:'d',v:true}); bb.classList.add('on'); bb.querySelector('.lbl2').textContent='🔴 Рисую!'; }, {passive:false});
+bb.addEventListener('touchend',   e=>{ e.preventDefault(); send({t:'d',v:false}); bb.classList.remove('on'); bb.querySelector('.lbl2').textContent='Зажми — рисуй'; }, {passive:false});
+bb.addEventListener('mousedown', ()=>{ send({t:'d',v:true}); bb.classList.add('on'); });
+document.addEventListener('mouseup', ()=>{ send({t:'d',v:false}); bb.classList.remove('on'); });
+
+// ── РАЗМЕР ───────────────────────────────────────────────
+document.getElementById('sz').addEventListener('input', e=>{
+  document.getElementById('sz-val').textContent=e.target.value;
+  send({t:'s',v:+e.target.value});
+});
+
+// ── ПАЛИТРА ──────────────────────────────────────────────
+let activeColor='#1a1a1a';
+['#1a1a1a','#e63946','#f4a261','#2a9d8f','#e9c46a','#a8dadc','#6a4c93','#4a90e2','#ffffff'].forEach(c=>{
+  const b=document.createElement('div');
+  b.className='cb'+(c===activeColor?' sel':'');
+  b.style.background=c;
+  if(c==='#ffffff') b.style.border='3px solid #555';
+  b.addEventListener('click',()=>{
+    document.querySelectorAll('.cb').forEach(x=>x.classList.remove('sel'));
+    b.classList.add('sel'); activeColor=c; send({t:'c',v:c});
+  });
+  document.getElementById('palette').appendChild(b);
+});
+document.getElementById('cpick').addEventListener('input', e=>{
+  activeColor=e.target.value;
+  document.querySelectorAll('.cb').forEach(x=>x.classList.remove('sel'));
+  send({t:'c',v:activeColor});
+});
+document.getElementById('btn-clear-phone').addEventListener('click',()=>send({t:'clr'}));
 </script>
 </body>
 </html>
